@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}
+
+// WordPress Integration - Orders
+model Orders {
+  id              Int         @id @default(autoincrement())
+  wordpressId     Int         @unique
+  orderNumber     String      @unique
+  customerId      Int
+  customerEmail   String
+  customerName    String
+  total           Float
+  currency        String      @default("USD")
+  status          String      @default("pending") // pending, processing, completed, cancelled
+  paymentStatus   String      @default("unpaid")
+  items           OrderItem[]
+  syncedAt        DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime    @default(now())
+
+  @@index([wordpressId])
+  @@index([status])
+  @@index([customerId])
+}
+
+// Order Line Items
+model OrderItem {
+  id           Int     @id @default(autoincrement())
+  orderId      Int
+  order        Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    Int
+  product      Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity     Int
+  price        Float
+  total        Float
+  sku          String?
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// Inventory Management
+model Product {
+  id              Int         @id @default(autoincrement())
+  wordpressId     Int         @unique
+  sku             String      @unique
+  name            String
+  description     String?
+  price           Float
+  quantity        Int         @default(0)
+  lowStockAlert   Int         @default(10)
+  orderItems      OrderItem[]
+  syncedAt        DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime    @default(now())
+
+  @@index([wordpressId])
+  @@index([sku])
+  @@index([quantity])
+}
+
+// Sync Logs for tracking WordPress integration
+model SyncLog {
+  id        Int     @id @default(autoincrement())
+  type      String  // "orders", "inventory"
+  status    String  // "success", "failed", "pending"
+  message   String?
+  errorMsg  String?
+  syncedAt  DateTime @default(now())
+
+  @@index([type])
+  @@index([status])
+}
